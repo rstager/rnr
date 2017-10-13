@@ -26,7 +26,8 @@ class NServoArmEnv(gym.Env):
         self.bounds = (-1.1 * sz, 1.1 * sz, -0.1 * sz, 1.1 * sz)
         self.action_space = spaces.Box(low=-self.max_speed, high=self.max_speed, shape=(len(self.links),))
 
-        self.image_goal=kwargs.get('image_goal',False) # NOTE: in this mode a display is required
+        self.image_goal=kwargs.get('image_goal',None) # NOTE: in this mode a display is required
+        self.image_only=kwargs.get('image_only',False) #
         self.bar=kwargs.get('bar',False)
         self.torquein=kwargs.get('torquein',True) # use input as a torqueue
         self.initial_angles = [tuple([float(x) for x in t]) for t in kwargs.get('initial_angles', [])]
@@ -45,13 +46,17 @@ class NServoArmEnv(gym.Env):
 
         self.reward_scale = 1 / (2 * sz)
 
-        if self.image_goal:
-            self.height,self.width=kwargs["image_goal"]
-            self.channels=3
-            if self.verbose: print("Image observation {}x{}".format(self.height,self.width))
-            self.high = np.array([self.max_angle] * len(self.links) + [255]*self.width*self.height*self.channels)
-            self.low = np.array([self.max_angle] * len(self.links) + [0]*self.width*self.height*self.channels)
-            self.observation_space = spaces.Box(low=self.low, high=self.high)
+        if self.image_goal is not None:
+            self.height, self.width = kwargs["image_goal"]
+            self.channels = 3
+            if self.verbose:
+                print("Image observation {}x{}".format(self.height,self.width))
+            if self.image_only:
+                self.observation_space = spaces.Box(low=0,high=1.0,shape=(self.height,self.width,self.channels))
+            else:
+                self.high = np.array([self.max_angle] * len(self.links) + [255]*self.width*self.height*self.channels)
+                self.low = np.array([self.max_angle] * len(self.links) + [0]*self.width*self.height*self.channels)
+                self.observation_space = spaces.Box(low=self.low, high=self.high)
         else:
             self.high = np.array([self.max_angle] * len(self.links) + ([1, 1] if self.bar else [1,1,1]))
             self.observation_space = spaces.Box(low=-np.pi, high=np.pi, shape=(len(self.links)*(1+self.torquein+self.sinout)+(3 if self.bar else 2),))
@@ -65,13 +70,14 @@ class NServoArmEnv(gym.Env):
         self.deadband=kwargs.get('goal_size',0.1)
         self.lastdr=0
 
-
+        self.locked=False
         if 'goals' in kwargs:
             self.goals = [tuple([float(x) for x in t]) for t in kwargs['goals']]
         elif 'ngoals' in kwargs:
             self.random_goals(int(kwargs['ngoals']))
         else:
             self.random_goals(1)
+        self.myname=random.randint(0,1000)
 
     def _seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -110,12 +116,17 @@ class NServoArmEnv(gym.Env):
 
         rsoft=0
         def softlimit(v,ul,ll=None):
-            if ll==None:
-                v=np.abs(v)
-            r=np.where(v>ul,v-ul,0)
-            if ll:
-                r+=np.where(v<ll,-(v+ll),0)
-            r=np.sum(np.square(r))
+            try:
+                if np.isnan(v).any():
+                    pass
+                if ll==None:
+                    v=np.abs(v)
+                r=np.where(v>ul,v-ul,0)
+                if ll:
+                    r+=np.where(v<ll,-(v+ll),0)
+                r=np.sum(np.square(r))
+            except:
+                print("NAN")
             return None if r==0 else r
 
         r=softlimit(np.array(ys),100000,-0.02)
@@ -153,8 +164,8 @@ class NServoArmEnv(gym.Env):
         if self.deadband_reward:
             if self.softpenalties and d < self.deadband*2:
                 reward += (self.deadband*2-d)/self.deadband*0.25
-            if d<self.deadband:
-                reward += .1
+            #if d>self.deadband:
+                #reward -= .1
         else:
             if self.deadband_stop and d<self.deadband:
                 reward+=1
@@ -178,22 +189,28 @@ class NServoArmEnv(gym.Env):
         self.linkv=np.zeros_like(self.linkv)
         self.done=False
         self.creset=True #controller reset
-        if self.use_random_goals: # use a new goal each time
-            self.random_goals(1)
-        self.goalidx=random.randrange(len(self.goals))
-        if len(self.initial_angles)>0:
-            self.linka=np.array(random.choice(self.initial_angles))
-            _, _, _, self.lastd = self.node_pos()
+        if not self.locked:
+            if self.use_random_goals: # use a new goal each time
+                self.random_goals(1)
+            self.goalidx=random.randrange(len(self.goals))
+            if len(self.initial_angles)>0:
+                self.linka=np.array(random.choice(self.initial_angles))
+                _, _, _, self.lastd = self.node_pos()
+            else:
+                while True: #pick a random but valid state
+                    self.linka = np.random.uniform(-np.pi, np.pi, size=[len(self.links)])
+                    _,ys,_,self.lastd = self.node_pos()
+                    if np.all(np.greater_equal(ys[1:],0.2)):break
+            self.last_start=np.copy(self.linka)
         else:
-            while True: #pick a random but valid state
-                self.linka = np.random.uniform(-np.pi, np.pi, size=[len(self.links)])
-                _,ys,_,self.lastd = self.node_pos()
-                if np.all(np.greater_equal(ys[1:],0.2)):break
+            self.linka=np.copy(self.last_start)
         self.episode_reward=0
         self.deadband_count=0
         return self._get_obs()
 
     def _get_obs(self):
+        if self.image_only:
+            return self._render(mode='rgb_array')
         baridx= -1 if self.bar else 0
         # normalize the goal
         goal = np.array(self.goals[self.goalidx])
@@ -326,10 +343,10 @@ class NServoArmEnv(gym.Env):
         lv=np.array(self.linkv)
         ad=self.goala-np.array(self.linka) # goal angle - current angle
         v= ad*3.0- lv*10.0
-        v=np.clip(v,-self.max_speed/3,self.max_speed/3)
+        v = v *self.max_speed/3/(abs(v)+self.max_speed/3) # soft clip
         vd = v - lv #velocity difference
-        t = vd*10.0
-        t = np.clip(t,-self.max_torque,self.max_torque)
+        t = vd*10
+        t = vd*self.max_torque/(abs(vd)+self.max_torque) # soft clip
         return t
 
 

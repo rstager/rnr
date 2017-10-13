@@ -1,6 +1,35 @@
 from __future__ import division
 import numpy as np
 
+def iter_sample_fast(iterable, samplesize):
+    from random import shuffle,randint
+    results = []
+    iterator = iter(iterable)
+    # Fill in the first samplesize elements:
+    try:
+        for _ in range(samplesize):
+            results.append(iterator.next())
+    except StopIteration:
+        raise ValueError("Sample larger than population.")
+    shuffle(results)  # Randomize their positions
+    for i, v in enumerate(iterator, samplesize):
+        r = randint(0, i)
+        if r < samplesize:
+            results[r] = v  # at a decreasing rate, replace random items
+    return results
+
+#count
+class Counter:
+    def __init__(self,initial=0):
+        self.value=initial
+    def inc(self):
+        self.value+=1
+        return self.value
+    def get(self):
+        return self.value
+    def set(self,v):
+        self.value=v
+
 # create a possibly sequenced directory
 def mkdirseq(directory):
     from os import path,makedirs
@@ -23,7 +52,7 @@ def kwargs(**kwargs):
 
 # generator for a grid of boxes (x1,y1,x2,y2)
 # box arg is output bounding box
-def boxgrid(nx,*args,box=(0,0,1,1)):
+def boxgrid(nx,box=(0,0,1,1),*args):
     ny=nx if not args else args[0]
     for i1,i2 in zip(np.linspace(box[0],box[2],nx+1)[:-1],np.linspace(box[0],box[2],nx+1)[1:]):
         for j1,j2 in zip(np.linspace(box[1],box[3],ny+1)[:-1],np.linspace(box[1],box[3],ny+1)[1:]):
