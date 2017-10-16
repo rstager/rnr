@@ -1,6 +1,8 @@
 import operator
 
 
+#this was cloned from https://github.com/openai/baselines.git
+
 class SegmentTree(object):
     def __init__(self, capacity, operation, neutral_element):
         """Build a Segment Tree data structure.
