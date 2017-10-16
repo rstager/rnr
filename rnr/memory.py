@@ -1,8 +1,8 @@
 import numpy as np
 import random
-
-from segment_tree import SumSegmentTree, MinSegmentTree
 from rl.memory import SequentialMemory
+
+from rnr.segment_tree import MinSegmentTree, SumSegmentTree
 
 
 class PrioritizedMemory(SequentialMemory):

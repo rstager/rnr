@@ -1,10 +1,11 @@
 import gym
+import numpy as np
+import random
 from gym import spaces
 from gym.utils import seeding
-import numpy as np
-from math import cos,sin,sqrt,acos,asin,pi
-import random
-from math import sqrt,atan2
+
+from math import acos, asin, atan2, cos, pi, sin, sqrt, sqrt
+
 
 class NServoArmEnv(gym.Env):
     metadata = {
