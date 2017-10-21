@@ -38,7 +38,7 @@ class NServoArmEnv(gym.Env):
         self.hardpenalties = kwargs.get('hardpenalties', False)
         self.d2reward = kwargs.get('d2reward', False)
         self.sinout=kwargs.get('sine',True)
-        self.deadband_reward=kwargs.get('deadbandreward',True)
+        self.deadband_reward=kwargs.get('deadband_reward',True)
         self.overx=kwargs.get('overx',False)
         self.negreward=kwargs.get('negd',True)
         self.deadband_stop=kwargs.get('deadband_stop',False)
@@ -162,15 +162,16 @@ class NServoArmEnv(gym.Env):
                                                                  self.episode_reward))
             if self.terminate_on_invalid:
                 self.done=True
-        if self.deadband_reward:
-            if self.softpenalties and d < self.deadband*2:
-                reward += (self.deadband*2-d)/self.deadband*0.25
-            #if d>self.deadband:
-                #reward -= .1
+        if self.deadband_stop:
+            if d < self.deadband:
+                if self.deadband_reward:
+                    reward += 1
+                self.done = True
         else:
-            if self.deadband_stop and d<self.deadband:
-                reward+=1
-                self.done=True
+            if self.deadband_reward:
+                if self.softpenalties and d < self.deadband*2:
+                    reward += (self.deadband*2-d)/self.deadband*0.25
+
         self.episode_reward+=reward
 
         if reward < 1000:
