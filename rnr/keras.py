@@ -126,10 +126,18 @@ class OrnsteinUhlenbeckProcess(AnnealedGaussianProcess):
         self.x_prev = self.x0 if self.x0 is not None else np.zeros(self.size)
 
 
-def ornstein_exploration(space,theta,nfrac=0.01,**kwrds):
-    #todo: add support for unique sigma per dimension
-    return OrnsteinUhlenbeckProcess(theta,size=space.shape,
-                                 sigma=nfrac*np.max(space.high),sigma_min=nfrac*np.min(space.low),**kwrds)
+
+#todo: add support for unique sigma per dimension
+class OrnstienUhlenbeckExplorer:
+    def __init__(self,space,nfrac=0.01,*args,**kwrds):
+        self.oup=OrnsteinUhlenbeckProcess(size=space.shape,
+                             sigma=nfrac*np.max(space.high),sigma_min=nfrac*np.min(space.low),**kwrds)
+    def sample(self,act):
+        return self.oup.sample()
+
+    def reset(self):
+        self.oup.reset_states()
+
 
 # borrowed from jiumem https://github.com/fchollet/keras/issues/898
 class LrReducer(Callback):
