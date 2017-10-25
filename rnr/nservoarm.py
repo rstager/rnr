@@ -44,6 +44,8 @@ class NServoArmEnv(gym.Env):
         self.deadband_stop=kwargs.get('deadband_stop',False)
         self.verbose=kwargs.get('verbose',False)
         self.use_random_goals=kwargs.get('use_random_goals',False)
+        self.clipping=kwargs.get('clipping',False)
+
 
         self.reward_scale = 1 / (2 * sz)
 
@@ -86,7 +88,10 @@ class NServoArmEnv(gym.Env):
 
     def _step(self,u):
         #move
-        cu=np.clip(u,-self.max_torque,self.max_torque)
+        if self.clipping:
+            cu=np.clip(u,-self.max_torque,self.max_torque)
+        else:
+            cu=u
         for i,l in enumerate(self.links):
             if self.torquein:
                 self.linkv[i]+=cu[i]*self.dt*0.1 #
@@ -94,7 +99,8 @@ class NServoArmEnv(gym.Env):
             else:
                 self.linkv[i]=cu[i]
                 self.linka[i] += self.linkv[i] * self.dt
-        self.linkv=np.clip(self.linkv,-self.max_speed,self.max_speed)
+        if self.clipping:
+            self.linkv=np.clip(self.linkv,-self.max_speed,self.max_speed)
         # find new position of the end effector and distance to goal
         xs, ys, ts,d = self.node_pos()
 
