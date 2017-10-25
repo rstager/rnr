@@ -38,13 +38,17 @@ def softargmax(x):
 def DDPGof(opt):
 
     class tmp(opt):
-        def __init__(self, critic, actor, *args, **kwargs):
+        def __init__(self, critic, actor, batch_size,*args, **kwargs):
             super(tmp, self).__init__(*args, **kwargs)
             self.critic=critic
             self.actor=actor
+            self.batch_size=batch_size
         def get_gradients(self,loss, params):
-            self.combinedloss= -self.critic([self.actor.inputs[0],self.actor.outputs[0]])
-            return K.gradients(self.combinedloss,self.actor.trainable_weights)
+            assert K.backend() == 'tensorflow'
+            self.combinedloss= self.critic([self.actor.inputs[0],self.actor.outputs[0]])
+            grads= K.gradients(self.combinedloss,self.actor.trainable_weights)
+            grads = [g / -float(self.batch_size) for g in grads]
+            return grads
     return tmp
 
 
