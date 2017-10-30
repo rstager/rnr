@@ -3,6 +3,7 @@ import numpy as np
 import random
 from gym import spaces
 from gym.utils import seeding
+import copy
 
 from math import acos, asin, atan2, cos, pi, sin, sqrt, sqrt
 
@@ -21,7 +22,7 @@ class NServoArmEnv(gym.Env):
         self.max_torque=1
         self.dt=.05
         self.viewer = None
-        self.links=[1.0,1.0]
+        self.links=kwargs.get('links',[1.0,1.0])
         self.nsensors=len(self.links)
         sz = np.sum(self.links)
         self.bounds = (-1.1 * sz, 1.1 * sz, -0.1 * sz, 1.1 * sz)
@@ -29,7 +30,7 @@ class NServoArmEnv(gym.Env):
 
         self.image_goal=kwargs.get('image_goal',None) # NOTE: in this mode a display is required
         self.image_only=kwargs.get('image_only',False) #
-        self.bar=kwargs.get('bar',False)
+        self.bar=kwargs.get('bar',len(self.links)>2)
         self.torquein=kwargs.get('torquein',True) # use input as a torqueue
         self.initial_angles = [tuple([float(x) for x in t]) for t in kwargs.get('initial_angles', [])]
         self.polar = kwargs.get('polar', False)
@@ -39,14 +40,13 @@ class NServoArmEnv(gym.Env):
         self.d2reward = kwargs.get('d2reward', False)
         self.sinout=kwargs.get('sine',True)
         self.deadband_reward=kwargs.get('deadband_reward',True)
-        self.overx=kwargs.get('overx',False)
-        self.negreward=kwargs.get('negd',True)
+        self.overx=kwargs.get('overx',True)
+        self.negreward=kwargs.get('negd',not self.d2reward)
         self.deadband_stop=kwargs.get('deadband_stop',False)
         self.verbose=kwargs.get('verbose',False)
         self.use_random_goals=kwargs.get('use_random_goals',False)
         self.clipping=kwargs.get('clipping',False)
-
-
+        self.clipreward=kwargs.get('clipreward',True)
         self.reward_scale = 1 / (2 * sz)
 
         if self.image_goal is not None:
@@ -99,6 +99,12 @@ class NServoArmEnv(gym.Env):
             else:
                 self.linkv[i]=cu[i]
                 self.linka[i] += self.linkv[i] * self.dt
+
+        if np.any(np.greater(self.linkv,2*self.max_speed)): # stop if grossly overspeed
+            self.done=True
+        if np.any(np.greater(np.abs(self.linka),20*np.pi)): # stop if grossly overrotating
+            self.done=True
+
         if self.clipping:
             self.linkv=np.clip(self.linkv,-self.max_speed,self.max_speed)
         # find new position of the end effector and distance to goal
@@ -109,14 +115,15 @@ class NServoArmEnv(gym.Env):
         if self.negreward:
             reward = -d
         elif self.d2reward:
-            reward = min(1,(self.deadband/d)**2 if d!=0 else 1)*2.0
+            reward = -d**2
         else:
             reward = (self.lastd - d) * self.reward_scale  # reward for progress towards the goal
         self.lastd = d
 
-        reward += -0.001 - np.sum(np.square(u))*0.01 - np.sum(np.square(self.linkv))*0.01   # incentive to get something done and not waste energy
+        reward += -0.001 - np.sum(np.square(u))*0.01 - np.sum(np.square(self.linkv))*0.1   # incentive to get something done and not waste energy
         if self.bar:
-            reward-= abs(ts[-1]-self.goals[self.goalidx][2])*.01 # todo: work on correct reward for angle of approach
+            ag=self.goals[self.goalidx][2]
+            reward -= (1-(cos(ts[-1]) * cos(ag) + sin(ts[-1]) * sin(ag))) * 0.1
 
         invalid=False
 
@@ -178,10 +185,10 @@ class NServoArmEnv(gym.Env):
                 if self.softpenalties and d < self.deadband*2:
                     reward += (self.deadband*2-d)/self.deadband*0.25
 
-        self.episode_reward+=reward
+        if self.clipreward:
+            reward=np.clip(reward,-10,0)
 
-        if reward < 1000:
-            pass
+        self.episode_reward+=reward
 
         if self.done and self.verbose: print("Done    obs={} u={} reward={} ys {} d {} er {} ".format(self._get_obs(),u,reward,ys,d,self.episode_reward))
         NServoArmEnv.loopcnt+=1
@@ -191,27 +198,31 @@ class NServoArmEnv(gym.Env):
             'effector':(xs[-1],ys[-1]),
         }
 
+    def get_state(self):
+        assert not self.use_random_goals
+        return copy.deepcopy((self.linka,self.linkv,self.goalidx,self.done,self.lastd,self.creset,self.episode_reward, self.deadband_count))
+
+    def set_state(self,state):
+        self.linka,self.linkv,self.goalidx,self.done,self.lastd,self.creset,self.episode_reward, self.deadband_count=copy.deepcopy(state)
+        return self._get_obs()
 
     def _reset(self):
         self.linka= np.zeros_like(self.linka)
         self.linkv=np.zeros_like(self.linkv)
         self.done=False
         self.creset=True #controller reset
-        if not self.locked:
-            if self.use_random_goals: # use a new goal each time
-                self.random_goals(1)
-            self.goalidx=random.randrange(len(self.goals))
-            if len(self.initial_angles)>0:
-                self.linka=np.array(random.choice(self.initial_angles))
-                _, _, _, self.lastd = self.node_pos()
-            else:
-                while True: #pick a random but valid state
-                    self.linka = np.random.uniform(-np.pi, np.pi, size=[len(self.links)])
-                    _,ys,_,self.lastd = self.node_pos()
-                    if np.all(np.greater_equal(ys[1:],0.2)):break
-            self.last_start=np.copy(self.linka)
+
+        if self.use_random_goals: # use a new goal each time
+            self.random_goals(1)
+        self.goalidx=random.randrange(len(self.goals))
+        if len(self.initial_angles)>0:
+            self.linka=np.array(random.choice(self.initial_angles))
+            _, _, _, self.lastd = self.node_pos()
         else:
-            self.linka=np.copy(self.last_start)
+            while True: #pick a random but valid state
+                self.linka = np.random.uniform(-np.pi, np.pi, size=[len(self.links)])
+                _,ys,_,self.lastd = self.node_pos()
+                if np.all(np.greater_equal(ys[1:],0.2)):break
         self.episode_reward=0
         self.deadband_count=0
         return self._get_obs()
@@ -219,12 +230,12 @@ class NServoArmEnv(gym.Env):
     def _get_obs(self):
         if self.image_only:
             return self._render(mode='rgb_array')
-        baridx= -1 if self.bar else 0
         # normalize the goal
         goal = np.array(self.goals[self.goalidx])
         goal[0]/=np.sum(self.links) #normalize length
         goal[1]/=np.sum(self.links) #normalize length
-        if self.bar: goal[2]/=np.pi #normalize bar angle
+        if self.bar:
+            goal[2]/=np.pi #normalize bar angle
         if self.polar:
             x=goal[0]
             y=goal[1]
@@ -272,7 +283,7 @@ class NServoArmEnv(gym.Env):
             self.viewer.add_geom(axle)
 
             if self.bar:
-                goal = rendering.make_capsule(self.deadband*3, self.deadband )
+                goal = rendering.make_capsule(self.deadband*2, self.deadband )
                 goal.set_color(1,0,0)
             else:
                 goal = rendering.make_circle(self.deadband)
