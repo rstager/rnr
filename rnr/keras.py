@@ -142,6 +142,10 @@ class OrnstienUhlenbeckExplorer:
     def reset(self):
         self.oup.reset_states()
 
+    def decay(self,multiplier):
+        print("decay OrnstienUhlenbeck {}".format(self.oup.sigma))
+        self.oup.sigma *= multiplier
+
 
 # borrowed from jiumem https://github.com/fchollet/keras/issues/898
 class LrReducer(Callback):
