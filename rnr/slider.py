@@ -16,14 +16,15 @@ class SliderEnv(gym.Env):
         self.width=320
         self.viewer=None
         self.maxx=1
-        self.maxv=1
+        self.maxv=0.5
         self.maxa=1
+        self.maxu=1
         self.goalx=0
-        self.bounds=np.array([-self.maxx,-self.maxv])
+        self.bounds=np.array([self.maxx,self.maxv])
         self.action_space = spaces.Box(low=-self.maxa, high=self.maxa, shape=(1,))
         self.observation_space = spaces.Box(low=-self.bounds,high=self.bounds)
         self.deadband=0.01
-        self.vdeadband=0.01
+        self.vdeadband=0.10
         self.dt=0.1
         self.x=0
         self.v=0
@@ -33,11 +34,15 @@ class SliderEnv(gym.Env):
         return [seed]
 
     def _step(self,u):
+        u=np.clip(u, -self.maxu, self.maxu)
         self.v+=u[0]*self.dt
+        self.v=np.clip(self.v,-self.maxv,self.maxv)
         self.x += self.v*self.dt
         error=abs(self.x-self.goalx)
-        reward=-error**2-self.v**2
-        self.done= (error<self.deadband and abs(self.v)<self.vdeadband) or abs(self.x)>self.maxx
+        reward= -error**2-0.1*self.v**2-0.01*u[0]**2
+        self.done= ((error<self.deadband and abs(self.v)<self.vdeadband)
+                    or abs(self.x)>self.maxx 
+                    or reward<-10)
         return self._get_obs(), reward, self.done, {}
 
 
@@ -88,3 +93,4 @@ class SliderEnv(gym.Env):
         return (self.x,self.v,self.goalx)
     def set_state(self,state):
         self.x,self.v,self.goalx= state
+        return self._get_obs()
