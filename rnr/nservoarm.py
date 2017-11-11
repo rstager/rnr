@@ -88,6 +88,7 @@ class NServoArmEnv(gym.Env):
 
     def _step(self,u):
         #move
+        reward=0
         if self.clipping:
             cu=np.clip(u,-self.max_torque,self.max_torque)
         else:
@@ -102,8 +103,10 @@ class NServoArmEnv(gym.Env):
 
         if np.any(np.greater(self.linkv,2*self.max_speed)): # stop if grossly overspeed
             self.done=True
+            reward -= 10
         if np.any(np.greater(np.abs(self.linka),20*np.pi)): # stop if grossly overrotating
             self.done=True
+            reward -= 10
 
         if self.clipping:
             self.linkv=np.clip(self.linkv,-self.max_speed,self.max_speed)
@@ -113,14 +116,14 @@ class NServoArmEnv(gym.Env):
 
         # determine reward
         if self.negreward:
-            reward = -d
+            reward += -d
         elif self.d2reward:
-            reward = -d**2
+            reward += -d**2/(sum(self.links)**2)
         else:
-            reward = (self.lastd - d) * self.reward_scale  # reward for progress towards the goal
+            reward += (self.lastd - d) * self.reward_scale  # reward for progress towards the goal
         self.lastd = d
 
-        reward += -0.001 - np.sum(np.square(u))*0.01 - np.sum(np.square(self.linkv))*0.1   # incentive to get something done and not waste energy
+        reward += -0.001 - np.sum(np.square(u))*0.1 - np.sum(np.square(self.linkv))*1.0   # incentive to get something done and not waste energy
         if self.bar:
             ag=self.goals[self.goalidx][2]
             reward -= (1-(cos(ts[-1]) * cos(ag) + sin(ts[-1]) * sin(ag))) * 0.1
@@ -175,6 +178,7 @@ class NServoArmEnv(gym.Env):
                                                                  self.episode_reward))
             if self.terminate_on_invalid:
                 self.done=True
+                reward -= 10
         if self.deadband_stop:
             if d < self.deadband:
                 if self.deadband_reward:
@@ -186,12 +190,14 @@ class NServoArmEnv(gym.Env):
                     reward += (self.deadband*2-d)/self.deadband*0.25
 
         if self.clipreward:
-            reward=np.clip(reward,-10,0)
+            reward=np.clip(reward,-100,0)
 
         self.episode_reward+=reward
 
-        if self.done and self.verbose: print("Done    obs={} u={} reward={} ys {} d {} er {} ".format(self._get_obs(),u,reward,ys,d,self.episode_reward))
+
+        if self.done and True  : print("Done  steps {}  obs={} u={} reward={} ys {} d {} er {} ".format(self.nsteps,self._get_obs(),u,reward,ys,d,self.episode_reward))
         NServoArmEnv.loopcnt+=1
+        self.nsteps+=1
         return self._get_obs(), reward, self.done, {
             "goal":self.goals[self.goalidx],
             'bounds':self.bounds,
@@ -225,6 +231,7 @@ class NServoArmEnv(gym.Env):
                 if np.all(np.greater_equal(ys[1:],0.2)):break
         self.episode_reward=0
         self.deadband_count=0
+        self.nsteps=0
         return self._get_obs()
 
     def _get_obs(self):
