@@ -114,6 +114,12 @@ gym.envs.register(
     max_episode_steps=200,
 )
 
+gym.envs.register(
+    id='PendulumHER-v100',
+    entry_point='hindsight:PendulumHEREnv',
+    max_episode_steps=200,
+)
+
 def hello_world(envname):
     env = gym.make(envname)
     for i_episode in range(200):
