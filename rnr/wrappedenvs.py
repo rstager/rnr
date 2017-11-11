@@ -3,7 +3,12 @@ from gym.envs.classic_control import Continuous_MountainCarEnv
 
 class RestartablePendulumEnv(PendulumEnv):
     def __init__(self,*args,**kwargs):
-        super(RestartablePendulumEnv,self).__init__()
+        super().__init__()
+
+    def _step(self,u):
+        obs,reward,done,info=super()._step(u)
+        reward /= 10 # scaled reward
+        return obs,reward,done,info
 
     def get_state(self):
         return (self.state,self.last_u)
@@ -13,7 +18,7 @@ class RestartablePendulumEnv(PendulumEnv):
 
 class RestartableContinuousMountainCartEnv(Continuous_MountainCarEnv):
     def __init__(self,*args,**kwargs):
-        super(RestartableContinuousMountainCartEnv,self).__init__()
+        super(f).__init__()
 
     def get_state(self):
         return (self.state)
