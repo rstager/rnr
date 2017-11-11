@@ -1,6 +1,18 @@
 from __future__ import division
 import numpy as np
 
+def reduce(array,func,initial):
+    value=initial
+    for entry in array:
+        value=func(value,entry)
+    return value
+
+def rms(v):
+    return np.sqrt((v ** 2).mean())
+
+def soft_clip(v,vmin,vmax,k):
+    x= v*k/(abs(v)+k)
+
 def iter_sample_fast(iterable, samplesize):
     from random import shuffle,randint
     results = []
