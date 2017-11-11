@@ -20,7 +20,7 @@ class PrioritizedMemory(SequentialMemory):
         --------
         ReplayBuffer.__init__
         """
-        super(PrioritizedMemory, self).__init__(limit,**kwargs)
+        super().__init__(limit,**kwargs)
         assert alpha > 0
         self._alpha = alpha
         self.priority=priority
@@ -36,7 +36,7 @@ class PrioritizedMemory(SequentialMemory):
 
     def append(self, *args, **kwargs):
         """See ReplayBuffer.store_effect"""
-        idx=super(PrioritizedMemory, self).append(*args,**kwargs)
+        idx=super().append(*args,**kwargs)
         self._it_sum[idx] = self._max_priority ** self._alpha
         self._it_min[idx] = self._max_priority ** self._alpha
 
@@ -77,7 +77,7 @@ class PrioritizedMemory(SequentialMemory):
         if not batch_idxs: batch_idxs = self._sample_proportional(batch_size)
 
 
-        experiences=super(PrioritizedMemory, self).sample(batch_size,batch_idxs)
+        experiences=super().sample(batch_size,batch_idxs)
 
         if self.priority:
             self.update_priorities(batch_idxs, self.priority.priority(experiences))
@@ -120,7 +120,7 @@ class PrioritizedMemory(SequentialMemory):
             self._max_priority = max(self._max_priority, priority)
 
     def get_config(self):
-        config = super(SequentialMemory, self).get_config()
+        config = super().get_config()
         config['alpha'] = self.alpha
         return config
 
