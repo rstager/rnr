@@ -108,8 +108,10 @@ class NServoArmEnv(gym.Env):
             self.done=True
             reward -= 10
 
+
         if self.clipping:
             self.linkv=np.clip(self.linkv,-self.max_speed,self.max_speed)
+            #self.linka=np.clip(self.linka,20*np.pi,20*np.pi)
         # find new position of the end effector and distance to goal
         xs, ys, ts,d = self.node_pos()
 
@@ -195,7 +197,7 @@ class NServoArmEnv(gym.Env):
         self.episode_reward+=reward
 
 
-        if self.done and True  : print("Done  steps {}  obs={} u={} reward={} ys {} d {} er {} ".format(self.nsteps,self._get_obs(),u,reward,ys,d,self.episode_reward))
+        if self.done and self.verbose  : print("Done  steps {}  obs={} u={} reward={} ys {} d {} er {} ".format(self.nsteps,self._get_obs(),u,reward,ys,d,self.episode_reward))
         NServoArmEnv.loopcnt+=1
         self.nsteps+=1
         return self._get_obs(), reward, self.done, {
@@ -260,7 +262,7 @@ class NServoArmEnv(gym.Env):
             s.append(img.flatten())
         else:
             s.append(goal)
-        return np.concatenate(s)
+        return copy.deepcopy(np.concatenate(s))
 
 
     def _render(self, mode='human', close=False):
