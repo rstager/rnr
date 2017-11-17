@@ -12,7 +12,7 @@ class SliderEnv(gym.Env):
     }
     loopcnt=0
     def __init__(self,**kwargs):
-        self.height=160
+        self.height=320
         self.width=320
         self.viewer=None
         self.maxx=1
@@ -70,19 +70,8 @@ class SliderEnv(gym.Env):
             from gym.envs.classic_control import rendering
             self.viewer = rendering.Viewer(self.width,self.height)
             sz=self
-            self.viewer.set_bounds(-1.1 * self.maxx, 1.1 * self.maxx, -1.1 * self.maxx, 1.1 * self.maxx)
-
-            goal = rendering.make_circle(.05)
-            goal.set_color(1, 0, 0)
-            self.goal_transform = rendering.Transform()
-            goal.add_attr(self.goal_transform)
-            self.viewer.add_geom(goal)
-
-            puck = rendering.make_circle(.025)
-            puck.set_color(0,0,0)
-            self.puck_transform=rendering.Transform()
-            puck.add_attr(self.puck_transform)
-            self.viewer.add_geom(puck)
+            oversize= 1.1 if self.ndim < 3 else 2.1
+            self.viewer.set_bounds(-oversize * self.maxx, oversize * self.maxx, -oversize * self.maxx, oversize * self.maxx)
 
             if self.ndim == 3:
                 goal_shadow = rendering.make_circle(.07)
@@ -98,6 +87,20 @@ class SliderEnv(gym.Env):
                 self.viewer.add_geom(puck_shadow)
 
 
+            goal = rendering.make_circle(.05)
+            goal.set_color(1, 0, 0)
+            self.goal_transform = rendering.Transform()
+            goal.add_attr(self.goal_transform)
+            self.viewer.add_geom(goal)
+
+            puck = rendering.make_circle(.025)
+            puck.set_color(0,0,0)
+            self.puck_transform=rendering.Transform()
+            puck.add_attr(self.puck_transform)
+            self.viewer.add_geom(puck)
+
+
+
         if self.ndim ==1:
             self.goal_transform.set_translation(self.goalx[0],0)
             self.puck_transform.set_translation(self.x[0],0)
@@ -107,8 +110,8 @@ class SliderEnv(gym.Env):
         elif self.ndim == 3:
             self.goal_transform.set_translation(self.goalx[0]+self.goalx[2], self.goalx[1]+self.goalx[2])
             self.puck_transform.set_translation(self.x[0]+self.x[2], self.x[1]+self.x[2])
-            self.goal_shadow_transform.set_translation(self.goalx[0]+self.goalx[2], self.goalx[1]+self.goalx[2])
-            self.puck_shadow_transform.set_translation(self.x[0]+self.x[2], self.x[1]+self.x[2])
+            self.goal_shadow_transform.set_translation(self.goalx[0], self.goalx[1])
+            self.puck_shadow_transform.set_translation(self.x[0], self.x[1])
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
 
