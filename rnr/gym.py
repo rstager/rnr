@@ -84,7 +84,7 @@ def rnrenvs():
     gym.envs.register(
         id='NServoArm-v6',
         entry_point='rnr.nservoarm:NServoArmEnv',
-        max_episode_steps=500,
+        max_episode_steps=1000,
         kwargs={#'ngoals': 10,  # 'image_goal':(160,320)
                 'goals': [(1, 1, 0),(-1,1,pi/2),(0,1,0)],
                 'links': [1,.7,.3],
@@ -92,6 +92,7 @@ def rnrenvs():
                 # 'initial_angles': [[0, 0]],
                 'deadband_reward': False,
                 'deadband_stop':True,
+                #'clipping':True
                 }
     )
     gym.envs.register(
@@ -99,6 +100,18 @@ def rnrenvs():
         entry_point='rnr.slider:SliderEnv',
         max_episode_steps=500,
         kwargs={}
+    )
+    gym.envs.register(
+        id='Slider-v2',
+        entry_point='rnr.slider:SliderEnv',
+        max_episode_steps=500,
+        kwargs={'ndim':2}
+    )
+    gym.envs.register(
+        id='Slider-v3',
+        entry_point='rnr.slider:SliderEnv',
+        max_episode_steps=500,
+        kwargs={'ndim':3}
     )
     
     gym.envs.register(
@@ -118,6 +131,13 @@ def rnrenvs():
         id='PendulumHER-v100',
         entry_point='hindsight:PendulumHEREnv',
         max_episode_steps=200,
+    )
+
+    gym.envs.register(
+        id='Bitflip-v0',
+        entry_point='rnr.bitflip:BitflipEnv',
+        max_episode_steps=100,
+        kwargs={}
     )
 
 def hello_world(envname):
