@@ -24,7 +24,7 @@ class SliderEnv(gym.Env):
         self.bounds=np.array([self.maxx,self.maxv,self.maxx]*self.ndim)
         self.action_space = spaces.Box(low=-self.maxa, high=self.maxa, shape=(self.ndim,))
         self.observation_space = spaces.Box(low=-self.bounds,high=self.bounds)
-        self.deadband=0.01
+        self.deadband=0.1
         self.vdeadband=0.10
         self.dt=0.1
         self.x=0
@@ -39,13 +39,21 @@ class SliderEnv(gym.Env):
         self.v+=u*self.dt
         self.v=np.clip(self.v,-self.maxv,self.maxv)
         self.x += self.v*self.dt
-        error=np.sum(abs(self.x-self.goalx))
-        reward= -np.sum(error**2+0.1*self.v**2+0.01*u[0]**2)
-        self.done=( (np.all(error<self.deadband) and np.all(abs(self.v)<self.vdeadband))
-                    or np.any(abs(self.x)>self.maxx)
-                    or reward<-10)
+        for i in range(self.ndim):
+            if self.x[i]>self.maxx:
+                self.x[i]=self.maxx
+                self.v[i]=0
+            elif self.x[i] < -self.maxx:
+                self.x[i] = -self.maxx
+                self.v[i]=0
+        error=abs(self.x-self.goalx)
+        reward= -np.sum(error**2+0.1*self.v**2+0.01*u[0]**2) - 1.0
+        self.done=(np.all(error<self.deadband) and np.all(abs(self.v)<self.vdeadband))
         if self.done:
-            print("done {} {} {} {} {}".format(error,self.goalx,self.x,self.v,u))
+            reward=0.0
+        self.nsteps+=1
+        if self.done:
+            print("done steps {:4} reward={} d2={} goal {} x={} v={} u={}".format(self.nsteps,reward,error,self.goalx,self.x,self.v,u))
         return self._get_obs(), reward, self.done, {}
 
 
@@ -53,6 +61,7 @@ class SliderEnv(gym.Env):
         self.goalx=np.random.uniform(-self.maxx,self.maxx,size=(self.ndim,))
         self.x=np.random.uniform(-self.maxx,self.maxx,size=(self.ndim,))
         self.v=np.zeros(self.ndim)
+        self.nsteps=0
         return self._get_obs()
 
     def _get_obs(self):
@@ -70,30 +79,30 @@ class SliderEnv(gym.Env):
             from gym.envs.classic_control import rendering
             self.viewer = rendering.Viewer(self.width,self.height)
             sz=self
-            oversize= 1.1 if self.ndim < 3 else 2.1
+            oversize= 1.1 if self.ndim < 3 else 2.2
             self.viewer.set_bounds(-oversize * self.maxx, oversize * self.maxx, -oversize * self.maxx, oversize * self.maxx)
 
             if self.ndim == 3:
-                goal_shadow = rendering.make_circle(.07)
-                goal_shadow.set_color(.5,0.2,0.2)
-                self.goal_shadow_transform = rendering.Transform()
-                goal_shadow.add_attr(self.goal_shadow_transform)
-                self.viewer.add_geom(goal_shadow)
+                goal_hieght = rendering.make_circle(.1)
+                goal_hieght.set_color(1,0,0)
+                self.goal_height_transform = rendering.Transform()
+                goal_hieght.add_attr(self.goal_height_transform)
+                self.viewer.add_geom(goal_hieght)
 
-                puck_shadow = rendering.make_circle(.027)
-                puck_shadow.set_color(0.2,0.2,0.2)
-                self.puck_shadow_transform = rendering.Transform()
-                puck_shadow.add_attr(self.puck_shadow_transform)
-                self.viewer.add_geom(puck_shadow)
+                puck_hieght = rendering.make_circle(.05)
+                puck_hieght.set_color(0,0,0)
+                self.puck_height_transform = rendering.Transform()
+                puck_hieght.add_attr(self.puck_height_transform)
+                self.viewer.add_geom(puck_hieght)
 
 
-            goal = rendering.make_circle(.05)
-            goal.set_color(1, 0, 0)
+            self.goal = rendering.make_circle(.1)
+            self.goal.set_color(1, 0, 0)
             self.goal_transform = rendering.Transform()
-            goal.add_attr(self.goal_transform)
-            self.viewer.add_geom(goal)
+            self.goal.add_attr(self.goal_transform)
+            self.viewer.add_geom(self.goal)
 
-            puck = rendering.make_circle(.025)
+            puck = rendering.make_circle(.05)
             puck.set_color(0,0,0)
             self.puck_transform=rendering.Transform()
             puck.add_attr(self.puck_transform)
@@ -104,14 +113,21 @@ class SliderEnv(gym.Env):
         if self.ndim ==1:
             self.goal_transform.set_translation(self.goalx[0],0)
             self.puck_transform.set_translation(self.x[0],0)
-        elif self.ndim == 2:
-            self.goal_transform.set_translation(self.goalx[0], self.goalx[1])
-            self.puck_transform.set_translation(self.x[0], self.x[1])
-        elif self.ndim == 3:
-            self.goal_transform.set_translation(self.goalx[0]+self.goalx[2], self.goalx[1]+self.goalx[2])
-            self.puck_transform.set_translation(self.x[0]+self.x[2], self.x[1]+self.x[2])
-            self.goal_shadow_transform.set_translation(self.goalx[0], self.goalx[1])
-            self.puck_shadow_transform.set_translation(self.x[0], self.x[1])
+        elif self.ndim >1:
+            self.goal_transform.set_translation(self.goalx[0], self.goalx[1]+self.maxx)
+            self.puck_transform.set_translation(self.x[0], self.x[1]+self.maxx)
+        if self.ndim == 3:
+            self.goal_height_transform.set_translation(self.goalx[0], self.goalx[2]-self.maxx*1.1)
+            self.puck_height_transform.set_translation(self.x[0], self.x[2]-self.maxx*1.1)
+
+        if np.all(abs(self.x-self.goalx)<self.deadband):
+            self.goal.set_color(0,1, 0)
+            if self.ndim==3:
+                self.goal.set_color(0, 1, 0)
+        else:
+            self.goal.set_color(1,0, 0)
+            if self.ndim==3:
+                self.goal.set_color(1,0, 0)
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
 
