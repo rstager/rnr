@@ -79,30 +79,22 @@ class SliderEnv(gym.Env):
             from gym.envs.classic_control import rendering
             self.viewer = rendering.Viewer(self.width,self.height)
             sz=self
-            oversize= 1.1 if self.ndim < 3 else 2.2
+            oversize= 1.1
             self.viewer.set_bounds(-oversize * self.maxx, oversize * self.maxx, -oversize * self.maxx, oversize * self.maxx)
 
-            if self.ndim == 3:
-                goal_hieght = rendering.make_circle(.1)
-                goal_hieght.set_color(1,0,0)
-                self.goal_height_transform = rendering.Transform()
-                goal_hieght.add_attr(self.goal_height_transform)
-                self.viewer.add_geom(goal_hieght)
-
-                puck_hieght = rendering.make_circle(.05)
-                puck_hieght.set_color(0,0,0)
-                self.puck_height_transform = rendering.Transform()
-                puck_hieght.add_attr(self.puck_height_transform)
-                self.viewer.add_geom(puck_hieght)
-
-
-            self.goal = rendering.make_circle(.1)
+            if self.ndim<3:
+                self.goal = rendering.make_circle(.1)
+            else:
+                self.goal = rendering.make_polygon([(.1,0), (-.1, .05), (-.1, -.05), (.1,0)])
             self.goal.set_color(1, 0, 0)
             self.goal_transform = rendering.Transform()
             self.goal.add_attr(self.goal_transform)
             self.viewer.add_geom(self.goal)
 
-            puck = rendering.make_circle(.05)
+            if self.ndim<3:
+                puck = rendering.make_circle(.05)
+            else:
+                puck = rendering.make_polygon([(.1,0), (-.1, .05), (-.1, -.05), (.1,0)])
             puck.set_color(0,0,0)
             self.puck_transform=rendering.Transform()
             puck.add_attr(self.puck_transform)
@@ -114,20 +106,16 @@ class SliderEnv(gym.Env):
             self.goal_transform.set_translation(self.goalx[0],0)
             self.puck_transform.set_translation(self.x[0],0)
         elif self.ndim >1:
-            self.goal_transform.set_translation(self.goalx[0], self.goalx[1]+self.maxx)
-            self.puck_transform.set_translation(self.x[0], self.x[1]+self.maxx)
+            self.goal_transform.set_translation(self.goalx[0], self.goalx[1])
+            self.puck_transform.set_translation(self.x[0], self.x[1])
         if self.ndim == 3:
-            self.goal_height_transform.set_translation(self.goalx[0], self.goalx[2]-self.maxx*1.1)
-            self.puck_height_transform.set_translation(self.x[0], self.x[2]-self.maxx*1.1)
+            self.goal_transform.set_rotation(self.goalx[2]*np.pi)
+            self.puck_transform.set_rotation(self.x[2]*np.pi)
 
         if np.all(abs(self.x-self.goalx)<self.deadband):
             self.goal.set_color(0,1, 0)
-            if self.ndim==3:
-                self.goal.set_color(0, 1, 0)
         else:
             self.goal.set_color(1,0, 0)
-            if self.ndim==3:
-                self.goal.set_color(1,0, 0)
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
 
