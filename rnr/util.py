@@ -57,6 +57,12 @@ def mkdirseq(directory):
     makedirs(directory)
     return directory
 
+def mkchdir(directory):
+    from os import chdir,makedirs,path
+    if not path.exists(directory):
+        makedirs(directory)
+    chdir(directory)
+
 # return a dictionary of keyword arguments
 #useful for prepackaging arguments
 def kwargs(**kwargs):
