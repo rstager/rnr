@@ -119,3 +119,19 @@ def listtocols(l):
         for idx,s in enumerate(r):
             ret[idx].append(s[idx])
     return np.array(ret)
+
+
+#Allow formating string for lists
+#usage: str.format(fmt(list))
+def fmt(l):
+    class x(list):
+        def __init__(self,l2):
+            super().__init__(l2)
+        def __format__(self,f):
+            fmt="{:"+f+"}"
+            s="["
+            for i in self.__iter__():
+                s+=fmt.format(i)
+                s+=" "
+            return s+"]"
+    return x(l)
