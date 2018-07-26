@@ -8,7 +8,7 @@ class h5record(object):
     '''
     dtmap={np.dtype('float32'):'f',np.dtype('float64'):'f',np.dtype('uint8'):'uint8'}
     def __init__(self,h5file,maxidx=1000000,exclude={}):
-        if isinstance(h5file,h5py.File)
+        if isinstance(h5file,h5py.File):
             self.h5file=h5file
         else:
             self.h5file=h5py.File(h5file, 'w')
@@ -17,7 +17,7 @@ class h5record(object):
         self.exclude=exclude
         self.datasets={}
 
-    def __call__(self,path):
+    def __call__(self,path,fields=None):
         '''
         Record data from dictionary. Each value will be appended to a dataset by the key.
         If the value is a numpy array or a python list, it will be appended as a row in the dataset by the
@@ -26,7 +26,10 @@ class h5record(object):
         :return:
         '''
         l=None
-        for name,data in path.items():
+        if fields is None:
+            fields=path.keys()
+        for name in fields:
+            data = path.get(name,None)
             #print("name {} len {}".format(name,len(data)))
             if name in self.exclude:
                 continue
