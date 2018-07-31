@@ -7,15 +7,23 @@ class h5record(object):
     record data from dictionary into h5file.
     '''
     dtmap={np.dtype('float32'):'f',np.dtype('float64'):'f',np.dtype('uint8'):'uint8'}
-    def __init__(self,h5file,maxidx=1000000,exclude={}):
+    def __init__(self,h5file,maxidx=1000000,exclude={},group=None,mode='w'):
         if isinstance(h5file,h5py.File):
             self.h5file=h5file
         else:
-            self.h5file=h5py.File(h5file, 'w')
+            self.h5file=h5py.File(h5file,mode)
         self.maxidx=maxidx
         self.idx=0
         self.exclude=exclude
         self.datasets={}
+        self.groupname=group
+        self.__new_groupname=self.groupname
+        if group is None:
+            self.group=self.h5file
+
+    def newgrp(self,groupname):
+        self.__new_groupname=groupname
+
 
     def __call__(self,path,fields=None,batch=False):
         '''
@@ -25,6 +33,15 @@ class h5record(object):
         :param path:
         :return:
         '''
+        # create group in logging thread to avoid race condition
+        if self.__new_groupname is not None:
+            self.groupname = self.__new_groupname
+            self.group=getattr(self.h5file,self.groupname,None)
+            if self.group is None:
+                self.group=self.h5file.create_group(self.groupname)
+            self.datasets={}
+            self.idx=0
+            self.__new_groupname=None
         l=None
         if fields is None:
             fields=path.keys()
@@ -38,23 +55,24 @@ class h5record(object):
                     data=[data]
                 if len(data)==0:continue
                 if not name in self.datasets:
-                    assert self.idx==0,'{} data set must appear in first call to record {} '.format(name,self.idx)
-                    if  name in self.h5file.keys():
-                        del self.h5file[name]
+                    assert self.idx==0,'{}/{} data set must appear in first call to record {} '\
+                        .format(self.groupname,name,self.idx)
+                    if  name in self.group.keys():
+                        del self.group[name]
                     if hasattr(data[0],'dtype'):
                         ftype=h5record.dtmap[data[0].dtype]
                     else:
                         ftype='f'
                     if  hasattr(data[0],'shape'): #numpy array
-                        self.datasets[name] = self.h5file.create_dataset(name, (self.maxidx,) + data[0].shape,ftype,
+                        self.datasets[name] = self.group.create_dataset(name, (self.maxidx,) + data[0].shape,ftype,
                                                                      chunks=(10,) + data[0].shape, compression='lzf')
                     elif hasattr(data[0],'__iter__'): # python list
                         print(type(data),type(data[0]))
-                        self.datasets[name] = self.h5file.create_dataset(name, (self.maxidx, len(data[0])),ftype,
+                        self.datasets[name] = self.group.create_dataset(name, (self.maxidx, len(data[0])),ftype,
                                                                    chunks=(10, len(data[0])), compression='lzf')
                     else:
                         print(type(data),type(data[0])) #scalar
-                        self.datasets[name] = self.h5file.create_dataset(name, (self.maxidx,1),
+                        self.datasets[name] = self.group.create_dataset(name, (self.maxidx,1),
                                                                     ftype,
                                                                     chunks=(10,1), compression='lzf')
 
@@ -66,7 +84,8 @@ class h5record(object):
             except Exception as e:
                 print(name,e)
         self.idx += l
-        self.h5file.attrs['maxidx']=self.idx
+        self.group.attrs['maxidx']=self.idx
         self.h5file.flush()
+
     def close(self):
         self.h5file.close()
