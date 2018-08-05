@@ -71,7 +71,7 @@ class h5record(object):
                         self.datasets[name] = self.group.create_dataset(name, (self.maxidx, len(data[0])),ftype,
                                                                    chunks=(10, len(data[0])), compression='lzf')
                     else:
-                        print(type(data),type(data[0])) #scalar
+                        #print(type(data),type(data[0])) #scalar
                         self.datasets[name] = self.group.create_dataset(name, (self.maxidx,1),
                                                                     ftype,
                                                                     chunks=(10,1), compression='lzf')
