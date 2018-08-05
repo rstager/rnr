@@ -67,7 +67,7 @@ class h5record(object):
                         self.datasets[name] = self.group.create_dataset(name, (self.maxidx,) + data[0].shape,ftype,
                                                                      chunks=(10,) + data[0].shape, compression='lzf')
                     elif hasattr(data[0],'__iter__'): # python list
-                        print(type(data),type(data[0]))
+                        #print(type(data),type(data[0]))
                         self.datasets[name] = self.group.create_dataset(name, (self.maxidx, len(data[0])),ftype,
                                                                    chunks=(10, len(data[0])), compression='lzf')
                     else:
