@@ -89,3 +89,6 @@ class h5record(object):
 
     def close(self):
         self.h5file.close()
+
+    def flush(self):
+        self.h5file.flush()
