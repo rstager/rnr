@@ -62,7 +62,7 @@ class h5record(object):
                     if hasattr(data[0],'dtype'):
                         ftype=h5record.dtmap[data[0].dtype]
                     else:
-                        ftype='f'
+                        ftype='f8'
                     if  hasattr(data[0],'shape'): #numpy array
                         self.datasets[name] = self.group.create_dataset(name, (self.maxidx,) + data[0].shape,ftype,
                                                                      chunks=(10,) + data[0].shape, compression='lzf')
