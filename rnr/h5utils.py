@@ -81,6 +81,14 @@ class h5record(object):
                         #print(type(data),type(data[0]))
                         self.datasets[name] = self.group.create_dataset(name, (self.maxidx, len(data[0])),ftype,
                                                                    chunks=(10, len(data[0])), compression='lzf')
+                    elif hasattr(data[0],'astuple'): # python list
+                        tmp=data[0].astuple()
+                        if isinstance(tmp, int):
+                            ftype = 'i8'
+                        elif isinstance(tmp, float):
+                            ftype = 'f8'
+                        self.datasets[name] = self.group.create_dataset(name, (self.maxidx, len(tmp)),ftype,
+                                                                   chunks=(10, len(tmp)), compression='lzf')
                     else:
                         #print(type(data),type(data[0])) #scalar
                         self.datasets[name] = self.group.create_dataset(name, (self.maxidx,1),
@@ -93,6 +101,8 @@ class h5record(object):
                 for idx in range(l):
                     if isinstance(data[idx],str):
                         self.datasets[name][self.idx+idx]=np.string_(data[idx])
+                    elif hasattr(data[0], 'astuple'):
+                        self.datasets[name][self.idx+idx]=data[idx].astuple()
                     else:
                         self.datasets[name][self.idx+idx]=data[idx]
             except Exception as e:
