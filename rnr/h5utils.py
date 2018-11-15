@@ -6,7 +6,7 @@ class h5record(object):
     '''
     record data from dictionary into h5file.
     '''
-    dtmap={np.dtype('float32'):'f',np.dtype('float64'):'f',np.dtype('uint8'):'uint8'}
+    dtmap={np.dtype('float32'):'f',np.dtype('float64'):'f',np.dtype('uint8'):'uint8',}
     def __init__(self,h5file,maxidx=1000000,exclude={},group=None,mode='w'):
         if isinstance(h5file,h5py.File):
             self.h5file=h5file
@@ -61,12 +61,23 @@ class h5record(object):
                         del self.group[name]
                     if hasattr(data[0],'dtype'):
                         ftype=h5record.dtmap[data[0].dtype]
+                    elif isinstance(data[0],int):
+                        ftype='i8'
+                    elif isinstance(data[0],float):
+                        ftype='f8'
+                    elif isinstance(data[0],str):
+                        ftype='S'+str(len(data[0]))
+                    elif hasattr(data[0],'__iter__'):
+                        if isinstance(data[0][0], int):
+                            ftype = 'i8'
+                        elif isinstance(data[0][0], float):
+                            ftype = 'f8'
                     else:
                         ftype='f8'
                     if  hasattr(data[0],'shape'): #numpy array
                         self.datasets[name] = self.group.create_dataset(name, (self.maxidx,) + data[0].shape,ftype,
                                                                      chunks=(10,) + data[0].shape, compression='lzf')
-                    elif hasattr(data[0],'__iter__'): # python list
+                    elif hasattr(data[0],'__iter__') and not isinstance(data[0],str): # python list
                         #print(type(data),type(data[0]))
                         self.datasets[name] = self.group.create_dataset(name, (self.maxidx, len(data[0])),ftype,
                                                                    chunks=(10, len(data[0])), compression='lzf')
@@ -80,6 +91,9 @@ class h5record(object):
                     l = len(data)
                 assert l == len(data),'{}: all path data must have the same length {} != {}'.format(name,l,len(data))
                 for idx in range(l):
+                    if isinstance(data[idx],str):
+                        self.datasets[name][self.idx+idx]=np.string_(data[idx])
+                    else:
                         self.datasets[name][self.idx+idx]=data[idx]
             except Exception as e:
                 print(name,e)
